@@ -1,95 +1,176 @@
 # Disease Spread Modeling Using Dynamic Bayesian Networks
 
-PGM course project modeling infectious disease spread on a contact network using a **2-time-slice Dynamic Bayesian Network (DBN)** with SEIR latent states and noisy test observations.
+## Project Description
+
+This project models the **temporal spread of infectious diseases through a population** using **Dynamic Bayesian Networks (DBNs)**. Each individual's infection state — **Susceptible, Exposed, Infectious, and Recovered (SEIR)** — is represented as a **latent variable**. **Observations** correspond to **reported symptoms or test results** collected across a contact network.
+
+The implementation covers the three core pillars of Probabilistic Graphical Models (PGMs):
+
+| Pillar | What this project does |
+|--------|-------------------------|
+| **Representation** | Defines the 2-time-slice DBN graph structure and conditional probability tables (CPTs) linking SEIR states, network contacts, and test/symptom emissions |
+| **Inference** | Implements forward–backward belief propagation (the DBN analogue of filtering/smoothing) to answer probabilistic queries |
+| **Learning** | Estimates epidemiological parameters (β, σ, γ) from **simulated or real-world epidemic data** using the **EM algorithm** |
+
+### Expected Outcome
+
+A working DBN that answers queries such as:
+
+> *Given a set of symptom/test observations across a network of individuals, what is the probability that a given node is currently infectious?*
+
+Example:
+
+```bash
+python run.py --query 0 10
+# → P(node 0 is infectious at time step 10 | all observations)
+```
+
+---
+
+## How the Model Maps to the Description
+
+### Latent variables (SEIR)
+
+For each individual \(i\) at time \(t\):
+
+\[
+X_i^t \in \{S,\; E,\; I,\; R\}
+\]
+
+| State | Meaning |
+|-------|---------|
+| **S** — Susceptible | Not yet infected |
+| **E** — Exposed | Infected but not yet infectious |
+| **I** — Infectious | Can transmit to contacts |
+| **R** — Recovered | Removed from transmission chain |
+
+### Observations (symptoms / test results)
+
+\[
+Y_i^t \in \{\text{negative},\; \text{positive},\; \text{missing}\}
+\]
+
+Observations are noisy indicators of the latent state, modeling **reported symptoms or diagnostic test results** with known sensitivity and specificity.
+
+### DBN structure (2-time-slice)
+
+```
+X_i^{t-1} ──→ X_i^t          within-person SEIR dynamics
+X_j^{t-1} ──→ X_i^t          transmission along contact (j ∈ neighbors of i)
+X_i^t     ──→ Y_i^t          symptom / test emission
+```
+
+### Key probabilistic query
+
+\[
+P(X_i^t = I \mid \{Y_j^{t'}\}_{j,t'})
+\]
+
+Implemented in `src/inference.py` via `query_node_infectious()`.
+
+---
 
 ## Data
 
-**Default: real-world data** — [Geneva COVID-19 contact tracing](https://github.com/PersonalDataIO/GEgraph) (GEgraph).
+The project supports **both data modes** described in the proposal: **simulated** and **real-world epidemic data**.
 
-| Field | Description |
-|-------|-------------|
-| Network | De-identified close-contact edges between infected individuals and contacts |
-| Observations | Dates of positive PCR tests (`date_res`) mapped to daily timesteps |
-| Subgraph | ~30 individuals from an early March 2020 outbreak cluster |
+### Real-world data (default)
 
-Raw CSVs are downloaded automatically to `data/raw/` on first run.
+**Geneva COVID-19 contact tracing** — [PersonalDataIO/GEgraph](https://github.com/PersonalDataIO/GEgraph)
 
-**Optional: synthetic data** — simulated SEIR epidemic on a Watts–Strogatz network (`--data synthetic`).
+| Project concept | Real data |
+|-----------------|-----------|
+| Population | De-identified individuals in a contact-tracing subgraph (~30 people) |
+| Contact network | Edges from close-contact records between infected persons and contacts |
+| Latent SEIR states | Hidden; inferred by the DBN |
+| Observations | Dates of **positive PCR test results** mapped to daily timesteps |
+| Partial observability | Most person–time steps have no test (missing observation) |
 
-## Three PGM Pillars
+This satisfies the requirement for **real-world epidemic data**: individual-level contacts and reported test outcomes from an actual COVID-19 outbreak (Geneva, March 2020).
 
-| Pillar | Module | Description |
-|--------|--------|-------------|
-| **Representation** | `src/model.py` | 2-slice DBN structure, SEIR CPTs with parameters β, σ, γ |
-| **Inference** | `src/inference.py` | Forward-backward filtering/smoothing → P(infectious \| observations) |
-| **Learning** | `src/learning.py` | EM algorithm to estimate β, σ, γ from partial observations |
+Raw CSVs download automatically to `data/raw/` on first run. See `data/README.md` for details.
+
+### Simulated data (optional)
+
+```bash
+python run.py --data synthetic
+```
+
+| Project concept | Synthetic data |
+|-----------------|----------------|
+| Population | Configurable number of individuals on a Watts–Strogatz contact network |
+| Latent SEIR states | Generated by forward simulation (ground truth available for validation) |
+| Observations | Noisy test results with random missingness (~70% tested per timestep) |
+| Use case | Controlled experiments, sensitivity analyses (Figures 5–7), EM validation |
+
+---
+
+## Three PGM Pillars — Implementation
+
+### 1. Representation (`src/model.py`)
+
+- 2-time-slice DBN over a contact network
+- CPTs for SEIR transitions with parameters β (transmission), σ (exposure→infectious), γ (recovery)
+- Noisy-OR transmission from infectious neighbors
+- Emission model for positive/negative test results
+- `build_dbn_structure()` and `export_pgmpy_dbn()` for pgmpy integration
+
+### 2. Inference (`src/inference.py`)
+
+- **Forward filtering** — \(P(X^t \mid Y^{1:t})\)
+- **Backward smoothing** — \(P(X^t \mid Y^{1:T})\)
+- Equivalent to **belief propagation** on the unrolled DBN time chain
+- Answers: *"What is P(node i is infectious | observations)?"*
+
+### 3. Learning (`src/learning.py`)
+
+- **EM algorithm**: E-step runs inference; M-step re-estimates β, σ, γ
+- Trained on partial test observations from real or simulated data
+- Convergence plotted in Figure 4
+
+---
+
+## Setup & Usage
+
+```bash
+pip install -r requirements.txt
+
+python run.py                      # real-world Geneva data (default)
+python run.py --data synthetic     # simulated epidemic data
+python run.py --quick              # faster run
+python run.py --query 0 10         # infectiousness query for node 0 at t=10
+```
 
 ## Project Structure
 
 ```
 pgm/
-├── run.py                  # Main entry point
+├── run.py                  # Main pipeline (representation → inference → learning)
 ├── requirements.txt
+├── data/                   # Dataset documentation and cached raw files
 ├── src/
-│   ├── config.py           # Constants and parameters
-│   ├── network.py          # Contact network generation
-│   ├── model.py            # CPTs and DBN structure
-│   ├── simulation.py       # Synthetic epidemic simulation
-│   ├── real_data.py          # Geneva COVID-19 contact-tracing loader
-│   ├── inference.py          # Forward-backward inference
-│   ├── learning.py         # EM parameter learning
+│   ├── config.py           # SEIR states, parameters, simulation config
+│   ├── model.py            # DBN structure and CPTs (Representation)
+│   ├── inference.py        # Forward–backward inference (Inference)
+│   ├── learning.py         # EM parameter learning (Learning)
+│   ├── real_data.py        # Real-world Geneva contact-tracing loader
+│   ├── simulation.py       # Simulated epidemic data generator
+│   ├── network.py          # Contact network construction
 │   ├── visualization.py    # Report figures
-│   └── experiments.py      # Sensitivity analyses
-└── outputs/                # Generated figures (after running)
-```
-
-## Setup
-
-```bash
-pip install -r requirements.txt
-```
-
-## Run
-
-```bash
-# Real Geneva contact-tracing data (default)
-python run.py
-
-# Synthetic simulated epidemic
-python run.py --data synthetic
-
-# Quick test run
-python run.py --quick
-
-# Answer a specific query
-python run.py --query 0 10
+│   └── experiments.py      # Sensitivity analyses (synthetic data)
+└── outputs/                # Generated figures
 ```
 
 ## Generated Figures
 
 | Figure | File | Description |
 |--------|------|-------------|
-| 0 | `fig0_network.png` | Contact network |
-| 1 | `fig1_epidemic_curve.png` | Simulated SEIR epidemic curve |
-| 2 | `fig2_heatmap_P_I.png` | P(Infectious) heatmap (people × time) |
-| 3 | `fig3_network_posterior.png` | Network colored by posterior P(I) |
-| 4 | `fig4_em_convergence.png` | EM parameter convergence |
-| 5 | `fig5_sensitivity_beta.png` | Peak infections vs β |
-| 6 | `fig6_sensitivity_test_rate.png` | EM error vs test rate |
-| 7 | `fig7_sensitivity_topology.png` | Epidemic size vs topology |
-
-## Model Summary
-
-**Latent variables:** \(X_i^t \in \{S, E, I, R\}\) — infection state of person \(i\) at time \(t\).
-
-**Observations:** \(Y_i^t\) — symptom/test result (positive, negative, or missing).
-
-**2-time-slice edges:**
-- \(X_i^{t-1} \to X_i^t\) — within-person SEIR dynamics
-- \(X_j^{t-1} \to X_i^t\) for neighbors \(j\) — disease transmission
-- \(X_i^t \to Y_i^t\) — noisy test emission
-
-**Key query:** Given partial test observations across the network, what is \(P(X_i^t = I \mid Y)\)?
+| 0 | `fig0_network.png` | Population contact network |
+| 1 | `fig1_epidemic_curve.png` | Epidemic progression over time |
+| 2 | `fig2_heatmap_P_I.png` | \(P(\text{Infectious})\) over individuals × time |
+| 3 | `fig3_network_posterior.png` | Network colored by posterior \(P(I)\) |
+| 4 | `fig4_em_convergence.png` | EM learning convergence |
+| 5–7 | `fig5`–`fig7` | Sensitivity experiments (synthetic data only) |
 
 ## Parameters
 
@@ -99,8 +180,8 @@ python run.py --query 0 10
 | σ | sigma | 0.20 | Exposed → Infectious rate |
 | γ | gamma | 0.10 | Infectious → Recovered rate |
 
-## Notes
+## References
 
-- Inference uses a **mean-field approximation** for neighbor coupling (tractable for arbitrary networks).
-- The `export_pgmpy_dbn()` function in `model.py` builds a pgmpy DBN skeleton for the representation write-up.
-- EM learns β, σ, γ; test sensitivity/specificity are held fixed.
+- Geneva contact-tracing data: [PersonalDataIO/GEgraph](https://github.com/PersonalDataIO/GEgraph)
+- DBN framework: Koller & Friedman, *Probabilistic Graphical Models*
+- pgmpy: `DynamicBayesianNetwork` for structure export

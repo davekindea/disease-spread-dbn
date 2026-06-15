@@ -3,17 +3,18 @@
 Disease Spread Modeling Using Dynamic Bayesian Networks
 =======================================================
 
-Full PGM project pipeline covering:
-  - Representation: SEIR DBN structure and CPTs
-  - Inference: forward-backward filtering / smoothing
-  - Learning: EM for beta, sigma, gamma
-  - Experiments: sensitivity analyses (synthetic data only)
+Models temporal disease spread through a population using a DBN with:
+  - Latent SEIR states (Susceptible, Exposed, Infectious, Recovered)
+  - Observations: reported symptoms / test results
+  - Representation: graph structure and CPTs
+  - Inference: forward-backward belief propagation
+  - Learning: EM on simulated or real-world epidemic data
 
 Usage:
-    python run.py                      # real Geneva contact-tracing data
-    python run.py --data synthetic     # simulated SEIR epidemic
+    python run.py                      # real-world Geneva contact-tracing data
+    python run.py --data synthetic     # simulated epidemic data
     python run.py --quick              # smaller/faster run
-    python run.py --query 0 10         # P(node 0 infectious at t=10)
+    python run.py --query 0 10         # P(node 0 infectious at t=10 | observations)
 """
 
 from __future__ import annotations
