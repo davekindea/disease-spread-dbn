@@ -35,7 +35,7 @@ from src.inference import infer_infectious_probability, query_node_infectious
 from src.learning import em_learn
 from src.model import build_dbn_structure
 from src.network import make_contact_network, network_summary
-from src.real_data import load_real_data
+from src.corona_data import load_corona_for_config
 from src.simulation import epidemic_counts, simulate_epidemic
 from src.visualization import (
     plot_em_convergence,
@@ -50,7 +50,6 @@ def _load_dataset(config: SimConfig, data_source: str):
     """Load graph, observations, and optional ground-truth states."""
     if data_source == "real":
         print("\n[Data] Loading COVID-19 (Corona) contact-tracing dataset")
-        from src.corona_data import load_corona_for_config
         bundle = load_corona_for_config(config)
         meta = bundle.metadata
         print(f"  Dataset: {bundle.dataset_name}")
@@ -196,7 +195,7 @@ def main() -> None:
         config = SimConfig(n_nodes=30, data_source=args.data)
         model_params = ModelParams()
         if args.data == "real":
-            bundle = load_real_data(config)
+            bundle = load_corona_for_config(config)
             G, Y_obs = bundle.graph, bundle.Y_obs
             pz = bundle.patient_zero
         else:

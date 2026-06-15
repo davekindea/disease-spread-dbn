@@ -137,18 +137,12 @@ def export_pgmpy_dbn(G: nx.Graph, params: ModelParams):
     n = G.number_of_nodes()
 
     for i in range(n):
-        dbn.add_edges_with_time_slice(
-            [(f"X_{i}", f"Y_{i}")],
-            timesteps=2,
-        )
-        dbn.add_edges_with_time_slice(
-            [(f"X_{i}", f"X_{i}")],
-            timesteps=2,
-        )
+        # Intra-slice: X_i^t -> Y_i^t (pgmpy copies across time slices 0 and 1)
+        dbn.add_edge((f"X_{i}", 0), (f"Y_{i}", 0))
+        # Inter-slice: X_i^{t-1} -> X_i^t
+        dbn.add_edge((f"X_{i}", 0), (f"X_{i}", 1))
         for j in G.neighbors(i):
-            dbn.add_edges_with_time_slice(
-                [(f"X_{j}", f"X_{i}")],
-                timesteps=2,
-            )
+            # Inter-slice: X_j^{t-1} -> X_i^t (transmission along contact)
+            dbn.add_edge((f"X_{j}", 0), (f"X_{i}", 1))
 
     return dbn
