@@ -104,8 +104,8 @@ def plot_network_posterior(
 
 def plot_em_convergence(
     history: np.ndarray,
-    true_params: np.ndarray,
     output_dir: Path,
+    true_params: np.ndarray | None = None,
 ) -> Path:
     """Figure 4: EM parameter convergence."""
     out = _ensure_dir(output_dir)
@@ -115,8 +115,11 @@ def plot_em_convergence(
     fig, ax = plt.subplots(figsize=(8, 4.5))
     for idx, (label, color) in enumerate(zip(labels, colors)):
         ax.plot(history[:, idx], label=f"learned {label}", color=color, linewidth=2)
-        ax.axhline(true_params[idx], color=color, linestyle=":", alpha=0.6,
-                   label=f"true {label}")
+        if true_params is not None:
+            ax.axhline(
+                true_params[idx], color=color, linestyle=":", alpha=0.6,
+                label=f"true {label}",
+            )
     ax.set_xlabel("EM iteration")
     ax.set_ylabel("Parameter value")
     ax.set_title("Figure 4: EM Convergence")

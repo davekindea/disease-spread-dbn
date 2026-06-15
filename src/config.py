@@ -42,9 +42,10 @@ class ModelParams:
 class SimConfig:
     """Simulation and experiment settings."""
 
-    n_nodes: int = 20
+    n_nodes: int = 30
     n_timesteps: int = 50
-    network_kind: str = "ws"  # er, ws, ba
-    test_probability: float = 0.70
+    network_kind: str = "ws"  # er, ws, ba (synthetic only)
+    test_probability: float = 0.70  # synthetic only
     seed: int = 42
     patient_zero: int = 0
+    data_source: str = "real"  # "real" or "synthetic"

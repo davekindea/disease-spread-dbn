@@ -2,6 +2,20 @@
 
 PGM course project modeling infectious disease spread on a contact network using a **2-time-slice Dynamic Bayesian Network (DBN)** with SEIR latent states and noisy test observations.
 
+## Data
+
+**Default: real-world data** — [Geneva COVID-19 contact tracing](https://github.com/PersonalDataIO/GEgraph) (GEgraph).
+
+| Field | Description |
+|-------|-------------|
+| Network | De-identified close-contact edges between infected individuals and contacts |
+| Observations | Dates of positive PCR tests (`date_res`) mapped to daily timesteps |
+| Subgraph | ~30 individuals from an early March 2020 outbreak cluster |
+
+Raw CSVs are downloaded automatically to `data/raw/` on first run.
+
+**Optional: synthetic data** — simulated SEIR epidemic on a Watts–Strogatz network (`--data synthetic`).
+
 ## Three PGM Pillars
 
 | Pillar | Module | Description |
@@ -20,8 +34,9 @@ pgm/
 │   ├── config.py           # Constants and parameters
 │   ├── network.py          # Contact network generation
 │   ├── model.py            # CPTs and DBN structure
-│   ├── simulation.py       # Epidemic simulation
-│   ├── inference.py        # Forward-backward inference
+│   ├── simulation.py       # Synthetic epidemic simulation
+│   ├── real_data.py          # Geneva COVID-19 contact-tracing loader
+│   ├── inference.py          # Forward-backward inference
 │   ├── learning.py         # EM parameter learning
 │   ├── visualization.py    # Report figures
 │   └── experiments.py      # Sensitivity analyses
@@ -37,15 +52,17 @@ pip install -r requirements.txt
 ## Run
 
 ```bash
-# Full pipeline (all figures)
+# Real Geneva contact-tracing data (default)
 python run.py
+
+# Synthetic simulated epidemic
+python run.py --data synthetic
 
 # Quick test run
 python run.py --quick
 
 # Answer a specific query
 python run.py --query 0 10
-# → P(node 0 is infectious at t=10 | observations)
 ```
 
 ## Generated Figures
