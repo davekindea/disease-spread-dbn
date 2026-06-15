@@ -138,7 +138,16 @@ pip install -r requirements.txt
 
 ### Interactive notebook (end-to-end walkthrough)
 
-Open **`notebooks/PGM_Epidemic_DBN_EndToEnd.ipynb`** — covers data description, all three PGM pillars, figures with explanations, and the key infectiousness query.
+Open **`notebooks/PGM_Epidemic_DBN_EndToEnd.ipynb`** — structured like the course reference pipeline (`REFERENCE_END_TO_END_PGM_PIPELINE.ipynb`):
+
+| Part | Topic |
+|------|--------|
+| PART 1 | Data & preprocessing (Geneva contact tracing) |
+| PART 2 | Representation (2-time-slice DBN, SEIR) |
+| PART 3 | Model structure & CPTs + Figures 0–1 |
+| PART 4 | Parameter learning (EM) + Figure 4 |
+| PART 5 | Inference (forward–backward) + Figures 2–3 + queries |
+| PART 6 | Evaluation dashboard & report checklist |
 
 ```bash
 jupyter notebook notebooks/PGM_Epidemic_DBN_EndToEnd.ipynb
@@ -159,7 +168,9 @@ python run.py --query 0 10         # infectiousness query for node 0 at t=10
 pgm/
 ├── run.py                  # Main pipeline (representation → inference → learning)
 ├── notebooks/
-│   └── PGM_Epidemic_DBN_EndToEnd.ipynb   # Full end-to-end notebook with figure explanations
+│   ├── PGM_Epidemic_DBN_EndToEnd.ipynb        # Main notebook (matches course pipeline style)
+│   ├── REFERENCE_END_TO_END_PGM_PIPELINE.ipynb  # Course reference (breast-cancer BN)
+│   └── build_notebook.py                      # Regenerate main notebook
 ├── requirements.txt
 ├── data/                   # Dataset documentation and cached raw files
 ├── src/
