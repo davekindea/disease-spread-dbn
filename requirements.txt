@@ -4,3 +4,5 @@ pandas>=2.0
 networkx>=3.0
 matplotlib>=3.7
 pgmpy>=0.1.25
+jupyter>=1.0
+ipykernel>=6.0

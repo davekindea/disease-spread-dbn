@@ -134,7 +134,19 @@ python run.py --data synthetic
 
 ```bash
 pip install -r requirements.txt
+```
 
+### Interactive notebook (end-to-end walkthrough)
+
+Open **`notebooks/PGM_Epidemic_DBN_EndToEnd.ipynb`** — covers data description, all three PGM pillars, figures with explanations, and the key infectiousness query.
+
+```bash
+jupyter notebook notebooks/PGM_Epidemic_DBN_EndToEnd.ipynb
+```
+
+### Command line
+
+```bash
 python run.py                      # real-world Geneva data (default)
 python run.py --data synthetic     # simulated epidemic data
 python run.py --quick              # faster run
@@ -146,6 +158,8 @@ python run.py --query 0 10         # infectiousness query for node 0 at t=10
 ```
 pgm/
 ├── run.py                  # Main pipeline (representation → inference → learning)
+├── notebooks/
+│   └── PGM_Epidemic_DBN_EndToEnd.ipynb   # Full end-to-end notebook with figure explanations
 ├── requirements.txt
 ├── data/                   # Dataset documentation and cached raw files
 ├── src/
