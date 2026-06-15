@@ -136,22 +136,20 @@ python run.py --data synthetic
 pip install -r requirements.txt
 ```
 
-### Interactive notebook (end-to-end walkthrough)
+### Interactive notebook (single merged pipeline)
 
-Open **`notebooks/PGM_Epidemic_DBN_EndToEnd.ipynb`** — structured like the course reference pipeline (`REFERENCE_END_TO_END_PGM_PIPELINE.ipynb`):
+Open **`notebooks/PGM_Complete_EndToEnd_Pipeline.ipynb`** — **one notebook** containing the full pipeline:
 
-| Part | Topic |
-|------|--------|
-| PART 1 | Data & preprocessing (Geneva contact tracing) |
-| PART 2 | Representation (2-time-slice DBN, SEIR) |
-| PART 3 | Model structure & CPTs + Figures 0–1 |
-| PART 4 | Parameter learning (EM) + Figure 4 |
-| PART 5 | Inference (forward–backward) + Figures 2–3 + queries |
-| PART 6 | Evaluation dashboard & report checklist |
+| Module | Content |
+|--------|---------|
+| **Module 1** | Static BN reference (Breast Cancer): Hill-Climb, MLE, Variable Elimination |
+| **Module 2** | Your COVID-19 (Corona) SEIR DBN project: EM, forward-backward, all figures |
 
 ```bash
-jupyter notebook notebooks/PGM_Epidemic_DBN_EndToEnd.ipynb
+jupyter notebook notebooks/PGM_Complete_EndToEnd_Pipeline.ipynb
 ```
+
+Regenerate after edits: `python notebooks/build_merged_notebook.py`
 
 ### Command line
 
@@ -168,9 +166,10 @@ python run.py --query 0 10         # infectiousness query for node 0 at t=10
 pgm/
 ├── run.py                  # Main pipeline (representation → inference → learning)
 ├── notebooks/
-│   ├── PGM_Epidemic_DBN_EndToEnd.ipynb        # Main notebook (matches course pipeline style)
-│   ├── REFERENCE_END_TO_END_PGM_PIPELINE.ipynb  # Course reference (breast-cancer BN)
-│   └── build_notebook.py                      # Regenerate main notebook
+│   ├── PGM_Complete_EndToEnd_Pipeline.ipynb   # Single merged notebook (Module 1 + Module 2)
+│   ├── REFERENCE_END_TO_END_PGM_PIPELINE.ipynb  # Original reference (also inside merged)
+│   ├── build_merged_notebook.py               # Regenerate merged notebook
+│   └── build_notebook.py
 ├── requirements.txt
 ├── data/                   # Dataset documentation and cached raw files
 ├── src/
