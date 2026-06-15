@@ -49,8 +49,9 @@ from src.visualization import (
 def _load_dataset(config: SimConfig, data_source: str):
     """Load graph, observations, and optional ground-truth states."""
     if data_source == "real":
-        print("\n[Data] Loading real-world Geneva COVID-19 contact tracing")
-        bundle = load_real_data(config)
+        print("\n[Data] Loading COVID-19 (Corona) contact-tracing dataset")
+        from src.corona_data import load_corona_for_config
+        bundle = load_corona_for_config(config)
         meta = bundle.metadata
         print(f"  Dataset: {bundle.dataset_name}")
         print(f"  Source: {meta['source']}")

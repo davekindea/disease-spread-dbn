@@ -201,4 +201,8 @@ def load_geneva_contact_tracing(
 
 def load_real_data(config: SimConfig) -> RealDataBundle:
     """Load real data according to simulation config."""
-    return load_geneva_contact_tracing(max_nodes=config.n_nodes)
+    try:
+        from .corona_data import load_corona_for_config
+        return load_corona_for_config(config)
+    except Exception:
+        return load_geneva_contact_tracing(max_nodes=config.n_nodes)

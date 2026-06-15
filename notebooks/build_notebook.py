@@ -27,24 +27,24 @@ C = []
 C.append(code("pip install pgmpy networkx matplotlib numpy pandas scipy"))
 
 # ── Cell 1: dataset header (reference style) ───────────────────────────────
-C.append(md("""  Dataset  : Geneva COVID-19 Contact Tracing (GEgraph) — real-world epidemic data
+C.append(md("""  Dataset  : COVID-19 (Corona) — Geneva contact tracing + OWID Switzerland context
 
   Model    : Dynamic Bayesian Network (SEIR) on a contact network
 
-  Library  : pgmpy, networkx, numpy, pandas, matplotlib + project src/"""))
+  Library  : pgmpy (latest), networkx, numpy, pandas, matplotlib"""))
 
 # ── Cell 2: lecture outline (reference style) ──────────────────────────────
 C.append(md("""LECTURE OUTLINE
 
-* PART 1  DATA & PREPROCESSING   – load real contact-tracing data, build network & observation matrix
+* PART 1  DATA & PREPROCESSING   – load COVID-19 (Corona) dataset, build network & observation matrix
 
-* PART 2  REPRESENTATION          – understand the 2-time-slice DBN and SEIR CPTs
+* PART 2  REPRESENTATION          – understand the 2-time-slice DBN and SEIR CPTs (pgmpy)
 
-* PART 3  MODEL STRUCTURE         – define the DBN graph over individuals and time
+* PART 3  MODEL STRUCTURE         – define DBN graph from Corona contact network
 
-* PART 4  PARAMETER LEARNING      – estimate beta, sigma, gamma via the EM algorithm
+* PART 4  PARAMETER LEARNING      – estimate beta, sigma, gamma via EM algorithm
 
-* PART 5  INFERENCE               – forward-backward belief propagation; P(infectious | tests)
+* PART 5  INFERENCE               – Variable Elimination (pgmpy) + forward-backward on Corona data
 
 * PART 6  EVALUATION & FIGURES    – epidemic curves, posterior heatmaps, EM convergence"""))
 
@@ -72,12 +72,21 @@ plt.rcParams["font.size"] = 11
 
 from src.config import ModelParams, SimConfig, STATES, STATE_IDX
 from src.config import OBS_MISSING, OBS_POS, OBS_NEG
-from src.real_data import load_real_data, RAW_DIR, GENEVA_FILES, _download_geneva_raw
+from src.corona_data import (
+    download_corona_dataset, load_corona_dataset,
+    load_corona_contact_tables, load_corona_owid_context, CORONA_DIR,
+)
 from src.model import build_dbn_structure, transition_distribution, emission_likelihood, export_pgmpy_dbn
 from src.network import network_summary
 from src.inference import infer_infectious_probability, query_node_infectious
 from src.learning import em_learn
 from src.simulation import epidemic_counts
+
+# pgmpy (same as reference notebook)
+from pgmpy.models import DiscreteBayesianNetwork
+from pgmpy.factors.discrete import TabularCPD
+from pgmpy.inference import VariableElimination
+from pgmpy.models import DynamicBayesianNetwork as DBN
 
 OUTPUT_DIR = PROJECT_ROOT / "outputs" / "notebook"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -88,34 +97,40 @@ print("Project root:", PROJECT_ROOT)"""))
 # ═══════════════════════════════════════════════════════════════════════════
 C.append(md("## PART 1 – DATA & PREPROCESSING"))
 
-C.append(md("""**1-A  Load the Geneva COVID-19 contact-tracing dataset**
+C.append(md("""**1-A  Load the COVID-19 (Corona) dataset**
 
-* Source: PersonalDataIO/GEgraph (Canton of Geneva, Switzerland, 2020)
-* Contains de-identified individuals, close-contact edges, and positive PCR test dates
-* Maps to our DBN: **latent** SEIR states + **observed** test results on a **contact network**"""))
+* Primary: Geneva contact-tracing CSVs (individual network + positive PCR tests, 2020)
+* Secondary: OWID Switzerland national case curve for epidemiological context
+* Saved under `data/corona/` — same integration pattern as the course reference notebook"""))
 
 C.append(code("""print(textwrap.dedent(\"\"\"
-WHY REAL DATA?
-  The project description requires simulated OR real-world epidemic data.
-  We use real contact-tracing records so the pipeline reflects actual
-  disease surveillance: sparse tests, network structure, temporal spread.
+COVID-19 (CORONA) DATASET — integrated for this PGM project
+  Primary  : Geneva contact tracing (GEgraph) — individuals, contacts, test dates
+  Context  : Our World in Data — Switzerland daily new cases
 
-OBSERVATION ENCODING:
-  Y_i^t =  1  positive test / symptom report
-  Y_i^t =  0  negative test
-  Y_i^t = -1  missing (no test that day) — most common in real data
+Maps to the DBN:
+  Latent X_i^t  = SEIR infection state (hidden)
+  Observed Y_i^t = COVID test result (positive / negative / missing)
+  Network edges  = documented close contacts during tracing
 \"\"\"))
 
-_download_geneva_raw()
-suivi     = pd.read_csv(RAW_DIR / GENEVA_FILES["suivi"])
-entourage = pd.read_csv(RAW_DIR / GENEVA_FILES["entourage"])
+download_corona_dataset()
+suivi, entourage = load_corona_contact_tables()
 
-print(f"suivi rows     : {len(suivi):,}")
-print(f"entourage rows : {len(entourage):,}")
-print(f"\\nFirst 3 suivi rows:")
-print(suivi[["record_id_pos", "date_res", "contact_record_id"]].head(3).to_string())
-print(f"\\nFirst 3 entourage rows:")
-print(entourage[["record_id_entourage", "contact_record_id", "contact_q_datedeb"]].head(3).to_string())"""))
+print(f"COVID tracing — suivi rows     : {len(suivi):,}")
+print(f"COVID tracing — entourage rows : {len(entourage):,}")
+print(f"Files location                 : {CORONA_DIR}")
+print(f"\\nFirst 3 positive-test records:")
+print(suivi[["record_id_pos", "date_res", "contact_record_id"]].dropna(subset=["date_res"]).head(3).to_string())
+
+# National COVID-19 context (Switzerland)
+owid = load_corona_owid_context("Switzerland")
+owid_sub = owid[(owid["date"] >= "2020-02-01") & (owid["date"] <= "2020-06-30")]
+fig, ax = plt.subplots(figsize=(9, 3))
+ax.plot(owid_sub["date"], owid_sub["new_cases"], color="#c0392b", lw=1.5)
+ax.set_title("COVID-19 (Corona) — Switzerland daily new cases (OWID context)")
+ax.set_xlabel("Date"); ax.set_ylabel("New cases"); ax.grid(alpha=0.3)
+plt.xticks(rotation=30); plt.tight_layout(); plt.show()"""))
 
 C.append(md("""**1-B  Build epidemic subgraph**
 
@@ -123,8 +138,7 @@ C.append(md("""**1-B  Build epidemic subgraph**
 * Expand by breadth-first search to ~30 connected individuals
 * This gives one local outbreak cluster — the **population** for our DBN"""))
 
-C.append(code("""config = SimConfig(n_nodes=30, data_source="real")
-bundle = load_real_data(config)
+C.append(code("""bundle = load_corona_dataset(max_nodes=30)
 
 G            = bundle.graph
 Y_obs        = bundle.Y_obs
@@ -132,6 +146,7 @@ X_true       = bundle.X_true
 patient_zero = bundle.patient_zero
 meta         = bundle.metadata
 
+print(f"Dataset name        : {bundle.dataset_name}")
 print(f"Subgraph nodes      : {meta['n_nodes']}")
 print(f"Time steps (days)   : {meta['n_timesteps']}")
 print(f"Date range          : {meta['date_start']} -> {meta['date_end']}")
@@ -239,7 +254,12 @@ print(f"\\nNetwork: {summary['n_nodes']} nodes, {summary['n_edges']} edges, "
 print("\\nExample CPT — susceptible person, one infectious neighbor:")
 p = transition_distribution("S", [1.0], params)
 for s, prob in zip(STATES, p):
-    print(f"  P(next={s}) = {prob:.3f}")"""))
+    print(f"  P(next={s}) = {prob:.3f}")
+
+# pgmpy DBN skeleton (like reference uses pgmpy.models)
+dbn = export_pgmpy_dbn(G, params)
+print(f"\\npgmpy DynamicBayesianNetwork nodes (sample): {list(dbn.nodes())[:8]} ...")
+print(f"pgmpy DBN edges (sample): {list(dbn.edges())[:6]} ...")"""))
 
 C.append(md("""**3-A  Visualise contact network (Figure 0)**
 
@@ -252,7 +272,7 @@ nx.draw(G, pos, with_labels=True, node_color="#a8d4f0", node_size=550,
         font_size=9, edge_color="#666", ax=ax)
 nx.draw_networkx_nodes(G, pos, nodelist=[patient_zero], node_color="#e74c3c",
                        node_size=650, ax=ax)
-ax.set_title("FIGURE 0 — Contact Network (Geneva tracing subgraph)\\nred = patient zero")
+ax.set_title("FIGURE 0 — COVID-19 Contact Network (Corona dataset)\\nred = patient zero")
 plt.tight_layout()
 fig.savefig(OUTPUT_DIR / "fig0_network.png", dpi=150)
 plt.show()
@@ -344,29 +364,46 @@ FIGURE 4 — HOW TO READ:
 # ═══════════════════════════════════════════════════════════════════════════
 # PART 5
 # ═══════════════════════════════════════════════════════════════════════════
-C.append(md("## PART 5 – INFERENCE  (Forward–Backward Belief Propagation)"))
+C.append(md("## PART 5 – INFERENCE  (Variable Elimination + Forward–Backward)"))
 
 C.append(code("""print(textwrap.dedent(\"\"\"
 INFERENCE = answering probabilistic queries using the fitted model.
 
-In the breast-cancer notebook we used Variable Elimination (VE).
-For temporal network models we use FORWARD-BACKWARD belief propagation:
-
-  Forward (filtering):
-    alpha_t(i,s) = P(X_i^t = s | Y^{1:t})
-    Predict from SEIR transitions, then update with today's test.
-
-  Backward (smoothing):
-    gamma_t(i,s) = P(X_i^t = s | Y^{1:T})
-    Refine beliefs using FUTURE tests as well as past.
+Like the reference notebook (breast-cancer BN), we use pgmpy Variable Elimination
+for a small COVID test model.  For the full temporal network we use
+forward-backward belief propagation on the Corona dataset.
 
 CENTRAL PROJECT QUERY:
-  P(X_i^t = Infectious | all observations) = gamma_t(i, I)
-
-This is Pillar 2: INFERENCE.
+  P(X_i^t = Infectious | all COVID test observations)
 \"\"\"))
 
-print("Running inference...")
+# --- 5-0  pgmpy Variable Elimination demo (same library as reference notebook) ---
+# Simplified single-person chain: Health -> COVID_Test
+covid_bn = DiscreteBayesianNetwork([("Health", "COVID_Test")])
+cpd_health = TabularCPD("Health", 2, [[0.7], [0.3]], state_names={"Health": ["NotInfectious", "Infectious"]})
+cpd_test = TabularCPD(
+    "COVID_Test", 2,
+    [[0.95, 0.10],   # P(neg | NotInf), P(neg | Inf)
+     [0.05, 0.90]],   # P(pos | NotInf), P(pos | Inf)
+    evidence=["Health"], evidence_card=[2],
+    state_names={"COVID_Test": ["Negative", "Positive"], "Health": ["NotInfectious", "Infectious"]},
+)
+covid_bn.add_cpds(cpd_health, cpd_test)
+assert covid_bn.check_model()
+infer_ve = VariableElimination(covid_bn)
+
+q_prior = infer_ve.query(["Health"])
+print("5-0a  Prior P(Health) [no evidence]:")
+print(q_prior, "\\n")
+
+q_pos = infer_ve.query(["Health"], evidence={"COVID_Test": "Positive"})
+print("5-0b  Posterior P(Health | Positive COVID test):")
+print(q_pos)
+map_h = infer_ve.map_query(["Health"], evidence={"COVID_Test": "Positive"})
+print(f"5-0c  MAP: most likely health state given positive test = {map_h['Health']}\\n")
+
+# --- Full network inference on integrated Corona dataset ---
+print("Running forward-backward on full COVID-19 contact network...")
 P_I, beliefs = infer_infectious_probability(
     G, Y_obs, params, patient_zero=patient_zero, smooth=True)
 print(f"Posterior P(I) shape: {P_I.shape},  range: [{P_I.min():.3f}, {P_I.max():.3f}]")"""))
@@ -520,7 +557,7 @@ for idx, (lab, col) in enumerate(zip(["beta","sigma","gamma"], ["#2980b9","#8e44
 ax3.set_xlabel("EM iter"); ax3.set_title("D  EM Convergence (Fig 4)")
 ax3.legend(fontsize=8); ax3.grid(alpha=0.3)
 
-fig.suptitle("PGM Epidemic DBN — End-to-End Dashboard", fontsize=14, y=1.01)
+fig.suptitle("COVID-19 (Corona) DBN — End-to-End Dashboard", fontsize=14, y=1.01)
 plt.tight_layout()
 fig.savefig(OUTPUT_DIR / "fig_dashboard.png", dpi=150, bbox_inches="tight")
 plt.show()
@@ -530,9 +567,9 @@ C.append(md("""### Final summary — three PGM pillars
 
 | Pillar | What we did in this notebook |
 |--------|------------------------------|
-| **Representation** | 2-time-slice SEIR DBN on Geneva contact network; CPTs with beta, sigma, gamma |
-| **Inference** | Forward-backward belief propagation; P(infectious \\| test observations) |
-| **Learning** | EM algorithm estimates epidemiological parameters from sparse real tests |
+| **Representation** | 2-time-slice SEIR DBN on COVID-19 (Corona) contact network; pgmpy DBN export |
+| **Inference** | pgmpy Variable Elimination + forward-backward on Corona test observations |
+| **Learning** | EM algorithm on integrated COVID-19 dataset |
 
 ### Project query answered
 
