@@ -119,3 +119,60 @@ def query_node_infectious(
     if time is not None:
         return float(P_I[time, node])
     return P_I[:, node]
+
+
+def query_seir_posterior(
+    G: nx.Graph,
+    Y: np.ndarray,
+    params: ModelParams,
+    node: int,
+    time: int,
+    patient_zero: int = 0,
+) -> dict[str, float]:
+    """Full posterior P(X_i^t = s | Y) for s in S,E,I,R."""
+    _, beliefs = infer_infectious_probability(
+        G, Y, params, patient_zero=patient_zero, smooth=True
+    )
+    b = beliefs[time, node]
+    return {s: float(b[STATE_IDX[s]]) for s in ("S", "E", "I", "R")}
+
+
+def query_with_extra_evidence(
+    G: nx.Graph,
+    Y: np.ndarray,
+    params: ModelParams,
+    node: int,
+    time: int,
+    extra_evidence: list[tuple[int, int, int]],
+    patient_zero: int = 0,
+) -> float:
+    """P(X_i^t = I | Y and additional test evidence)."""
+    Y2 = Y.copy()
+    for person, day, obs in extra_evidence:
+        Y2[day, person] = obs
+    return query_node_infectious(G, Y2, params, node=node, time=time, patient_zero=patient_zero)
+
+
+def query_most_likely_infected(
+    G: nx.Graph,
+    Y: np.ndarray,
+    params: ModelParams,
+    day: int,
+    patient_zero: int = 0,
+) -> tuple[int, float]:
+    """Argmax_i P(X_i^t = I | Y) on a given day."""
+    P_I, _ = infer_infectious_probability(G, Y, params, patient_zero=patient_zero, smooth=True)
+    i = int(np.argmax(P_I[day]))
+    return i, float(P_I[day, i])
+
+
+def query_expected_infected_count(
+    G: nx.Graph,
+    Y: np.ndarray,
+    params: ModelParams,
+    day: int,
+    patient_zero: int = 0,
+) -> float:
+    """Expected number of infected people on day t: sum_i P(X_i^t = I | Y)."""
+    P_I, _ = infer_infectious_probability(G, Y, params, patient_zero=patient_zero, smooth=True)
+    return float(P_I[day].sum())
